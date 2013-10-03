@@ -1,15 +1,16 @@
 #lang plai
-(define-type WAE
+(define-type CWAE
   [num (n number?)]
-  [add (lhs WAE?) (rhs WAE?)]
-  [sub (lhs WAE?) (rhs WAE?)]
-  [mult (lhs WAE?) (rhs WAE?)]
-  [div (lhs WAE?) (rhs WAE?)]
-  [with (name symbol?) (named-expr WAE?) (body WAE?)]
+  [add (lhs CWAE?) (rhs CWAE?)]
+  [sub (lhs CWAE?) (rhs CWAE?)]
+  [mult (lhs CWAE?) (rhs CWAE?)]
+  [div (lhs CWAE?) (rhs CWAE?)]
+  [minus (operand CWAE?)]
+  [with (name symbol?) (named-expr CWAE?) (body CWAE?)]
   [id (name symbol?)]
 )
 
-;; parse: s-expr --> WAE
+;; parse: s-expr --> CWAE
 (define (parse sexp)
   (cond [(number? sexp) (num sexp)]
         [(symbol? sexp) (id sexp)]
@@ -19,22 +20,24 @@
                                     (parse (third sexp)))]
         [(eq? (first sexp) '+) (add (parse (second sexp))
                                     (parse (third sexp)))]
-        [(eq? (first sexp) '-) (sub (parse (second sexp))
-                                    (parse (third sexp)))]
+        [(eq? (first sexp) '-) (cond [(eq? 2 (length sexp)) (minus (parse (second sexp)))]
+                                     [(eq? 3 (length sexp)) (sub (parse (second sexp))
+                                                                 (parse (third sexp)))]
+                                     [#t (error 'parse "incorrect number of arguments")])]
         [(eq? (first sexp) 'with) (with (first (second sexp))
                                     (parse (second (second sexp)))
                                     (parse (third sexp)))]
-        [ else (error 'parse "unexpected expression")]
+        [else (error 'parse "unexpected expression")]
   )
 )
 
 ;; From Krishnamurthy text, p.19-20
-;; subst : WAE symbol WAE --> WAE
+;; subst : CWAE symbol CWAE --> CWAE
 ;; substitutes second argument with third argument in first argument,
 ;; as per the rules of substitution; the resulting expression contains
 ;; no free instances of the second argument
 (define (subst expr sub-id val)
-  (type-case WAE expr
+  (type-case CWAE expr
     [num (n) expr]
     [add (l r) (add (subst l sub-id val)
                     (subst r sub-id val))]
@@ -44,6 +47,7 @@
                       (subst r sub-id val))]
     [div (l r) (div (subst l sub-id val)
                     (subst r sub-id val))]
+    [minus (oper) (minus (subst oper sub-id val))]
     [with (bound-id named-expr bound-body)
           (if (symbol=? bound-id sub-id)
               (with bound-id
@@ -57,12 +61,13 @@
 )
 
 (define (calc expr)
-  (type-case WAE expr
+  (type-case CWAE expr
     [num (n) n]
     [add (l r) (+ (calc l) (calc r))]
     [sub (l r) (- (calc l) (calc r))]
     [mult (l r) (* (calc l) (calc r))]
     [div (l r) (/ (calc l) (calc r))]
+    [minus (oper) (- (calc oper))]
     [with (s nexpr body) (calc (subst body s (num (calc nexpr))))]
     [id (s) (error 'calc "unexpected free variable encountered")]
   )
