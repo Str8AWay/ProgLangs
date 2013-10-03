@@ -14,19 +14,23 @@
 (define (parse sexp)
   (cond [(number? sexp) (num sexp)]
         [(symbol? sexp) (id sexp)]
-        [(eq? (first sexp) '*) (mult (parse (second sexp))
-                                     (parse (third sexp)))]
-        [(eq? (first sexp) '/) (div (parse (second sexp))
-                                    (parse (third sexp)))]
-        [(eq? (first sexp) '+) (add (parse (second sexp))
-                                    (parse (third sexp)))]
+        [(eq? (first sexp) '*) (cond [(eq? 3 (length sexp)) (mult (parse (second sexp))
+                                                                  (parse (third sexp)))]
+                                     [#t (error 'parse "incorrect number of arguments for *")])]
+        [(eq? (first sexp) '/) (cond [(eq? 3 (length sexp)) (div (parse (second sexp))
+                                                                 (parse (third sexp)))]
+                                     [#t (error 'parse "incorrect number of arguments for /")])]
+        [(eq? (first sexp) '+) (cond [(eq? 3 (length sexp)) (add (parse (second sexp))
+                                                                 (parse (third sexp)))]
+                                     [#t (error 'parse "incorrect number of arguments for +")])]
         [(eq? (first sexp) '-) (cond [(eq? 2 (length sexp)) (minus (parse (second sexp)))]
                                      [(eq? 3 (length sexp)) (sub (parse (second sexp))
                                                                  (parse (third sexp)))]
-                                     [#t (error 'parse "incorrect number of arguments")])]
-        [(eq? (first sexp) 'with) (with (first (second sexp))
-                                    (parse (second (second sexp)))
-                                    (parse (third sexp)))]
+                                     [#t (error 'parse "incorrect number of arguments for -")])]
+        [(eq? (first sexp) 'with) (cond [(eq? 3 (length sexp)) (with (first (second sexp))
+                                                                    (parse (second (second sexp)))
+                                                                    (parse (third sexp)))]
+                                        [#t (error 'parse "incorrect number of arguments for with")])]
         [else (error 'parse "unexpected expression")]
   )
 )
