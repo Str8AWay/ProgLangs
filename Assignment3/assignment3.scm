@@ -27,9 +27,16 @@
                                      [(eq? 3 (length sexp)) (sub (parse (second sexp))
                                                                  (parse (third sexp)))]
                                      [#t (error 'parse "incorrect number of arguments for -")])]
-        [(eq? (first sexp) 'with) (cond [(eq? 3 (length sexp)) (with (first (second sexp))
-                                                                    (parse (second (second sexp)))
-                                                                    (parse (third sexp)))]
+        [(eq? (first sexp) 'with) (cond [(eq? 3 (length sexp))
+                                            (cond [(list? (second sexp))
+                                                      (cond [(symbol? (first (second sexp)))
+                                                                (cond [(list? (third sexp))
+                                                                            (with (first (second sexp))
+                                                                                (parse (second (second sexp)))
+                                                                                (parse (third sexp)))]
+                                                                      [#t (error 'parse "third item in with expression isn't a list")])]
+                                                            [#t (error 'parse "no symbol for with expression")])]
+                                                  [#t (error 'parse "second item in with expression isn't a list")])]
                                         [#t (error 'parse "incorrect number of arguments for with")])]
         [else (error 'parse "unexpected expression")]
   )
