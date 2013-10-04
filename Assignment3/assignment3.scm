@@ -10,7 +10,9 @@
   [with (name symbol?) (named-expr CWAE?) (body CWAE?)]
   [id (name symbol?)]
 )
-
+; AUTHORS  
+; Jason Laqua
+; Kaleb Breault
 ;; parse: s-expr --> CWAE
 (define (parse sexp)
   (cond [(number? sexp) (num sexp)]
