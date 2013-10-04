@@ -95,25 +95,14 @@
   )
 )
 
-(calc (parse '{with {x 3} {+ 2 x}}))
-(calc (parse '{with {x 3} {with {y 11} {+ y x}}}))
+;;(calc (parse '{with {x 3} {+ 2 x}}))
+;;(calc (parse '{with {x 3} {with {y 11} {+ y x}}}))
 
 ;;Why "(if (symbol=? bound-id sub-id)"?:
-(calc (parse '{with {x 3} {with {x 11} {+ x x}}}))
+;;(calc (parse '{with {x 3} {with {x 11} {+ x x}}}))
 
-(calc (parse '{with {x 3} {with {y {+ x 1}} {+ y x}}}))
+;;(calc (parse '{with {x 3} {with {y {+ x 1}} {+ y x}}}))
 ;;Hint: consider (subst (parse '{with {y {+ x 1}} {+ y x}}) 'x (num 3))
 
-(calc (parse '{with {x 5} {with {x x} {+ x 1}}}))
-(subst (parse '{with {x x} {+ x 1}}) 'x (num 5))
-
-(calc (parse '{with {x 4} {+ 3 4}}))
-'if<
-(calc (parse '{if< 12 4 100 0}))
-(calc (parse '{if< 0 100 {with {x 3} {+ 2 x}} {with {x 6} {+ 2 x}}}))
-(calc (parse '{if< 110 100 {with {x 3} {+ 2 x}} {with {x 6} {+ 2 x}}}))
-(calc (parse '{if< 100 100 {with {x 3} {+ 2 x}} {with {x 6} {+ 2 x}}}))
-(calc (parse '{with {x 9} {if< x 100 {with {y 3} {+ 2 y}} {with {y 6} {+ x y}}}}))
-(calc (parse '{with {x 9} {if< 100 x {with {y 3} {+ 2 y}} {with {y 6} {+ x y}}}}))
-(calc (parse '{with {x 9} {with {z 12} {if< x z {* 7 7} {with {y 6} {/ x y}}}}}))
-(calc (parse '{with {x 9} {with {z 12} {if< z x {* 7 7} {with {y 6} {/ x y}}}}}))
+;;(calc (parse '{with {x 5} {with {x x} {+ x 1}}}))
+;;(subst (parse '{with {x x} {+ x 1}}) 'x (num 5))
