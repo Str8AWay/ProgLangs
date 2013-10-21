@@ -1,3 +1,5 @@
+; Written by Jason Laqua and Kaleb Breault
+
 #lang plai
 (define-type JOE
   [num (n number?)]
