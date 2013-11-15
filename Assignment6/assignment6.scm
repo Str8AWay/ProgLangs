@@ -26,6 +26,7 @@
   [closureV (param symbol?)
             (body JOE+?)
             (env Env?)]
+  [boxV (location number?)]
 )
 
 (define (boxed-JOE+-value? b)
@@ -78,7 +79,7 @@
 ;; store-lookup : location Store → JOE+-value
 (define (store-lookup loc-index sto)
   (type-case Store sto
-    [mtSto () (error ’store-lookup ”no value at location”)]
+    [mtSto () (error 'store-lookup "no value at location")]
     [aSto (location value rest-store)
           (if (= location loc-index)
               value
@@ -122,16 +123,76 @@
  )
  
 ;; interp: JOE+ Env --> JOE+-value
-(define (interp expr env)
+(define (interp expr env store)
   (type-case JOE+ expr
     [num (n) (v*s (numV n) store)]
-    [add (l r) (tree-add (interp l env) (interp r env))]
-    [sub (l r) (tree-sub (interp l env) (interp r env))]
-    [mult (l r) (tree-mult (interp l env) (interp r env))]
-    [div (l r) (tree-div (interp l env) (interp r env))]
+    [add (l r) 
+         (type-case Value*Store (interp l env store)
+           [v*s (l-value l-store)
+                (type-case Value*Store (interp r env l-store)
+                  [v*s (r-value r-store)
+                       (v*s (tree-add l-value r-value)
+                            r-store)
+                  ]
+                )
+           ]
+         )]
+    [sub (l r)
+         (type-case Value*Store (interp l env store)
+           [v*s (l-value l-store)
+                (type-case Value*Store (interp r env l-store)
+                  [v*s (r-value r-store)
+                       (v*s (tree-sub l-value r-value)
+                            r-store)
+                  ]
+                )
+           ]
+         )]
+    [mult (l r) 
+          (type-case Value*Store (interp l env store)
+           [v*s (l-value l-store)
+                (type-case Value*Store (interp r env l-store)
+                  [v*s (r-value r-store)
+                       (v*s (tree-mult l-value r-value)
+                            r-store)
+                  ]
+                )
+           ]
+         )]
+    [div (l r)
+         (type-case Value*Store (interp l env store)
+           [v*s (l-value l-store)
+                (type-case Value*Store (interp r env l-store)
+                  [v*s (r-value r-store)
+                       (v*s (tree-div l-value r-value)
+                            r-store)
+                  ]
+                )
+           ]
+         )]
     [minus (oper) (tree-minus (interp oper env))]
-    [equ (l r) (tree-equ (interp l env) (interp r env))]
-    [lt (l r) (tree-lt (interp l env) (interp r env))]
+    [equ (l r)
+         (type-case Value*Store (interp l env store)
+           [v*s (l-value l-store)
+                (type-case Value*Store (interp r env l-store)
+                  [v*s (r-value r-store)
+                       (v*s (tree-div l-value r-value)
+                            r-store)
+                  ]
+                )
+           ]
+         )]
+    [lt (l r)
+        (type-case Value*Store (interp l env store)
+           [v*s (l-value l-store)
+                (type-case Value*Store (interp r env l-store)
+                  [v*s (r-value r-store)
+                       (v*s (tree-div l-value r-value)
+                            r-store)
+                  ]
+                )
+           ]
+         )]
     [IF (test tval fval) (cond [(booleanV-b (interp test env)) (interp tval env)]
                                [#t (interp fval env)])]
     [with (bound-id named-expr bound-body)
@@ -212,6 +273,6 @@
         [else (error 'parse "syntax error")]
      ))
 
-(define (run expr) (interp (parse expr) (mtSub)))
+(define (run expr) (interp (parse expr) (mtSub) (mtSto)))
 
 
