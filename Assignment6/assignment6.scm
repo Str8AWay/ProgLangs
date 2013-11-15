@@ -17,7 +17,8 @@
   [rec (bound-id symbol?)
        (named-expr JOE+?)
        (bound-body JOE+?)]
-  [app (fun-expr JOE+?) (arg JOE+?)])
+  [app (fun-expr JOE+?) (arg JOE+?)]
+  [SET (var symbol?) (value JOE+?)])
 
 (define-type JOE+-value
   [numV (n number?)]
@@ -122,7 +123,8 @@
                                           named-expr
                                           env))]
     [id (v) (lookup v env)]
-    [fun (arg body)(closureV arg body env)]
+    [fun (arg body) (closureV arg body env)]
+    [SET (name value) (cyclically-bind-and-interp name value env)]
     [app (fun-expr arg-expr)
          (let ((fun-closure (interp fun-expr env)))
            (interp (closureV-body fun-closure)
@@ -182,6 +184,7 @@
         [(eq? (first sexp) 'refun) (rec (first (second sexp))
                                     (parse (second (second sexp)))
                                     (parse (third sexp)))]
+        [(eq? (first sexp) 'set) (SET (second sexp) (parse (third sexp)))]
         [(eq? 2 (length sexp)) (app (parse (first sexp)) 
                                    (parse (second sexp)))]
         [else (error 'parse "syntax error")]
@@ -189,95 +192,4 @@
 
 (define (run expr) (interp (parse expr) (mtSub)))
 
-(run '{with {x 2}
-  {with {y 12}
-    {+ {* x x} {* y y}}
-}})
-
-
-
-(run '{- 1 {- 2 {- 3 {- 4 {- 5 6}}}}})
-
-
-
-(run '{with {x 3} ;; this should evaluate to a boolean value
-  {= x 2}})
-  
-  
-  
-(run '{with {x 3}
-  {= x 3}})
-  
-  
-  
-(run '{if {= {* 5 21} {* 7 15}}
-    9999
-    5555
-})
-
-
-
-(run '{with {x 9}    ; you can change these vals, but the larger one should
-  {with {y 3}  ; always wind up at the left of the final number
-               ; and the smaller one at the right
-     {with  {min  {if {< x y}
-                     x 
-                     y}}
-        {with  {max  {if {< x y}
-                        y 
-                        x}}
-           {+ {* max 1000} min} ; output will be best if smaller is
- }}}}                           ; no more than two digits
-)
-
-
-(run '{with {double {fun {n} {* 2 n}}}
-  {double 12}}
-)
-
-
-(run '{with {abs {fun {x} {if {< x 0} {- x} x}}} ;; absolute value
-   {abs -101}
-})
-
-
-
-;; Use currying to define "two-parameter"
-;; function in terms of one-parameter
-;; (first-class) functions
-;;
-;;  {{mod-base b} n}
-;;
-;; returns n modulo b.
-;; [This should work in the language JOE+]
-;;
-;; written by mike slattery - oct 2013
-;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(run '{with {mod-base {fun {b}
-                  {fun {n}
-                    {- n {* b {/ n b}}}
-                  }
-                }
-      }
-  {{mod-base 7} 11} ;; Compute 11 mod 7
-})
-
-
-;; Or put the parameters in the more
-;; traditional order: 
-
-(run '{with {mod {fun {n}
-                  {fun {b}
-                    {- n {* b {/ n b}}}
-                  }
-                }
-      }
-  {{mod 100} 7} ;; Compute 100 mod 7
-})
-
-(run '{{fun {foo}
-         {if {= foo 7} 7 {- 7}}} 5})
-
-(run '{{fun {5} {* 4 5}} 4}) ;returns a parsing error
 
