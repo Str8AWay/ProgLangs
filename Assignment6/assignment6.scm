@@ -42,6 +42,17 @@
           (env Env?)]
 )
 
+(define-type Store
+  [mtSto]
+  [aSto (location number?)
+        (value JOE+-value?)
+        (store Store?)]
+)
+
+(define-type Value*Store
+  [v*s (value JOE+-value?) (store Store?)]
+)
+
 (define (cyclically-bind-and-interp bound-id named-expr env)
   (let* ((value-holder (box (numV 55)))
          (new-env (aRecSub bound-id value-holder env))
@@ -50,19 +61,30 @@
      new-env
   ))
 
-;; lookup: symbol Env --> JOE+
-(define (lookup name env)
+;; env-lookup: symbol Env --> JOE+
+(define (env-lookup name env)
   (type-case Env env
-    [mtSub () (error 'lookup "no binding found for id ~a" name)]
+    [mtSub () (error 'env-lookup "no binding found for id ~a" name)]
     [aSub (bound-name bound-value rest-env)
           (if (symbol=? name bound-name)
               bound-value
-              (lookup name rest-env))]
+              (env-lookup name rest-env))]
     [aRecSub (bound-name boxed-value rest-env)
           (if (symbol=? name bound-name)
               (unbox boxed-value)
-              (lookup name rest-env))]
+              (env-lookup name rest-env))]
  ))
+
+;; store-lookup : location Store → JOE+-value
+(define (store-lookup loc-index sto)
+  (type-case Store sto
+    [mtSto () (error ’store-lookup ”no value at location”)]
+    [aSto (location value rest-store)
+          (if (= location loc-index)
+              value
+              (store-lookup loc-index rest-store))]
+  )
+)
 
 ;; tree-add: JOE+-value JOE+-value --> JOE+-value
 (define (tree-add a b)
@@ -102,7 +124,7 @@
 ;; interp: JOE+ Env --> JOE+-value
 (define (interp expr env)
   (type-case JOE+ expr
-    [num (n) (numV n)]
+    [num (n) (v*s (numV n) store)]
     [add (l r) (tree-add (interp l env) (interp r env))]
     [sub (l r) (tree-sub (interp l env) (interp r env))]
     [mult (l r) (tree-mult (interp l env) (interp r env))]
@@ -122,8 +144,8 @@
               (cyclically-bind-and-interp bound-id
                                           named-expr
                                           env))]
-    [id (v) (lookup v env)]
-    [fun (arg body) (closureV arg body env)]
+    [id (v) (v*s (store-lookup (env-lookup v env) store) store)]
+    [fun (arg body) (v*s (closureV arg body env) store)]
     [SET (name value) (cyclically-bind-and-interp name value env)]
     [app (fun-expr arg-expr)
          (let ((fun-closure (interp fun-expr env)))
