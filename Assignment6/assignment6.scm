@@ -1,106 +1,137 @@
 ; Written by Jason Laqua and Kaleb Breault
 
 #lang plai
-(define-type JOE
+(define-type JOE+
   [num (n number?)]
-  [add (lhs JOE?) (rhs JOE?)]
-  [sub (lhs JOE?) (rhs JOE?)]
-  [mult (lhs JOE?) (rhs JOE?)]
-  [div (lhs JOE?) (rhs JOE?)]
-  [minus (operand JOE?)]
-  [equ (lhs JOE?) (rhs JOE?)]
-  [lt (lhs JOE?) (rhs JOE?)]
-  [with (name symbol?) (named-expr JOE?) (body JOE?)]
-  [IF (test JOE?) (tval JOE?) (fval JOE?)]
+  [add (lhs JOE+?) (rhs JOE+?)]
+  [sub (lhs JOE+?) (rhs JOE+?)]
+  [mult (lhs JOE+?) (rhs JOE+?)]
+  [div (lhs JOE+?) (rhs JOE+?)]
+  [minus (operand JOE+?)]
+  [equ (lhs JOE+?) (rhs JOE+?)]
+  [lt (lhs JOE+?) (rhs JOE+?)]
+  [with (name symbol?) (named-expr JOE+?) (body JOE+?)]
+  [IF (test JOE+?) (tval JOE+?) (fval JOE+?)]
   [id (name symbol?)]
-  [fun (arg-name symbol?) (body JOE?)]
-  [app (fun-expr JOE?) (arg JOE?)])
+  [fun (arg-name symbol?) (body JOE+?)]
+  [rec (bound-id symbol?)
+       (named-expr JOE+?)
+       (bound-body JOE+?)]
+  [app (fun-expr JOE+?) (arg JOE+?)])
 
-(define-type JOE-value
+(define-type JOE+-value
   [numV (n number?)]
   [booleanV (b boolean?)]
   [closureV (param symbol?)
-            (body JOE?)
-            (ds DefrdSub?)]
-  )
-(define-type DefrdSub
-  [mtSub]
-  [aSub (name symbol?) (value JOE-value?) (ds DefrdSub?)]
-  )
+            (body JOE+?)
+            (env Env?)]
+)
 
-;; lookup: symbol DefrdSub --> JOE
-(define (lookup name ds)
-  (type-case DefrdSub ds
+(define (boxed-JOE+-value? b)
+  (and (box? b)
+       (JOE+-value? (unbox b))
+  )
+)
+
+(define-type Env
+  [mtSub]
+  [aSub (name symbol?) (value JOE+-value?) (env Env?)]
+  [aRecSub (name symbol?)
+          (value boxed-JOE+-value?)
+          (env Env?)]
+)
+
+(define (cyclically-bind-and-interp bound-id named-expr env)
+  (let* ((value-holder (box (numV 55)))
+         (new-env (aRecSub bound-id value-holder env))
+         (named-expr-val (interp named-expr new-env)))
+     (set-box! value-holder named-expr-val)
+     new-env
+  ))
+
+;; lookup: symbol Env --> JOE+
+(define (lookup name env)
+  (type-case Env env
     [mtSub () (error 'lookup "no binding found for id ~a" name)]
-    [aSub (bound-name bound-value rest-ds)
+    [aSub (bound-name bound-value rest-env)
           (if (symbol=? name bound-name)
               bound-value
-              (lookup name rest-ds))]
+              (lookup name rest-env))]
+    [aRecSub (bound-name boxed-value rest-env)
+          (if (symbol=? name bound-name)
+              (unbox boxed-value)
+              (lookup name rest-env))]
  ))
-;; tree-add: JOE-value JOE-value --> JOE-value
+
+;; tree-add: JOE+-value JOE+-value --> JOE+-value
 (define (tree-add a b)
   (numV (+ (numV-n a) (numV-n b)))
  )
  
- ;; tree-sub: JOE-value JOE-value --> JOE-value
+ ;; tree-sub: JOE+-value JOE+-value --> JOE+-value
  (define (tree-sub a b)
    (numV (- (numV-n a) (numV-n b)))
  )
  
- ;; tree-mult: JOE-value JOE-value --> JOE-value
+ ;; tree-mult: JOE+-value JOE+-value --> JOE+-value
  (define (tree-mult a b)
    (numV (* (numV-n a) (numV-n b)))
  )
 
- ;; tree-div: JOE-value JOE-value --> JOE-value
+ ;; tree-div: JOE+-value JOE+-value --> JOE+-value
  (define (tree-div a b)
    (numV (quotient (numV-n a) (numV-n b)))
  )
  
- ;; tree-minus: JOE-value --> JOE-value
+ ;; tree-minus: JOE+-value --> JOE+-value
  (define (tree-minus a)
    (numV (- (numV-n a)))
  )
  
- ;; tree-equ: JOE-value --> JOE-value
+ ;; tree-equ: JOE+-value --> JOE+-value
  (define (tree-equ a b)
    (booleanV (eq? (numV-n a) (numV-n b)))
  )
  
- ;; tree-lt: JOE-value --> JOE-value
+ ;; tree-lt: JOE+-value --> JOE+-value
  (define (tree-lt a b)
    (booleanV (< (numV-n a) (numV-n b)))
  )
  
-;; interp: JOE DefrdSub --> JOE-value
-(define (interp expr ds)
-  (type-case JOE expr
+;; interp: JOE+ Env --> JOE+-value
+(define (interp expr env)
+  (type-case JOE+ expr
     [num (n) (numV n)]
-    [add (l r) (tree-add (interp l ds) (interp r ds))]
-    [sub (l r) (tree-sub (interp l ds) (interp r ds))]
-    [mult (l r) (tree-mult (interp l ds) (interp r ds))]
-    [div (l r) (tree-div (interp l ds) (interp r ds))]
-    [minus (oper) (tree-minus (interp oper ds))]
-    [equ (l r) (tree-equ (interp l ds) (interp r ds))]
-    [lt (l r) (tree-lt (interp l ds) (interp r ds))]
-    [IF (test tval fval) (cond [(booleanV-b (interp test ds)) (interp tval ds)]
-                               [#t (interp fval ds)])]
+    [add (l r) (tree-add (interp l env) (interp r env))]
+    [sub (l r) (tree-sub (interp l env) (interp r env))]
+    [mult (l r) (tree-mult (interp l env) (interp r env))]
+    [div (l r) (tree-div (interp l env) (interp r env))]
+    [minus (oper) (tree-minus (interp oper env))]
+    [equ (l r) (tree-equ (interp l env) (interp r env))]
+    [lt (l r) (tree-lt (interp l env) (interp r env))]
+    [IF (test tval fval) (cond [(booleanV-b (interp test env)) (interp tval env)]
+                               [#t (interp fval env)])]
     [with (bound-id named-expr bound-body)
           (interp bound-body
                   (aSub bound-id
-                        (interp named-expr ds)
-                        ds))]
-    [id (v) (lookup v ds)]
-    [fun (arg body)(closureV arg body ds)]
+                        (interp named-expr env)
+                        env))]
+    [rec (bound-id named-expr bound-body)
+      (interp bound-body
+              (cyclically-bind-and-interp bound-id
+                                          named-expr
+                                          env))]
+    [id (v) (lookup v env)]
+    [fun (arg body)(closureV arg body env)]
     [app (fun-expr arg-expr)
-         (let ((fun-closure (interp fun-expr ds)))
+         (let ((fun-closure (interp fun-expr env)))
            (interp (closureV-body fun-closure)
                           (aSub (closureV-param fun-closure)
-                                (interp arg-expr ds)
-                                (closureV-ds fun-closure))))]
+                                (interp arg-expr env)
+                                (closureV-env fun-closure))))]
   ))
 
-;; parse: s-expr -->JOE
+;; parse: s-expr -->JOE+
 (define (parse sexp)
   (cond [(number? sexp) (num sexp)]
         [(symbol? sexp) (id sexp)]
@@ -148,6 +179,9 @@
                                                                               (parse (third sexp)))]
                                                                     [#t (error 'parse "incorrect first operand of fun")])]
                                         [#t (error 'parse "incorrect number of arguments for fun")])]
+        [(eq? (first sexp) 'refun) (rec (first (second sexp))
+                                    (parse (second (second sexp)))
+                                    (parse (third sexp)))]
         [(eq? 2 (length sexp)) (app (parse (first sexp)) 
                                    (parse (second sexp)))]
         [else (error 'parse "syntax error")]
@@ -215,7 +249,7 @@
 ;;  {{mod-base b} n}
 ;;
 ;; returns n modulo b.
-;; [This should work in the language JOE]
+;; [This should work in the language JOE+]
 ;;
 ;; written by mike slattery - oct 2013
 ;;;;;;;;;;;;;;;;;;;;;;;;;
