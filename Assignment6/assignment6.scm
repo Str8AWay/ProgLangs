@@ -137,7 +137,7 @@
 (define (interp expr env store)
   (type-case JOE+ expr
     [num (n) (v*s (numV n) store)]
-    [add (l r) 
+   [add (l r)
          (type-case Value*Store (interp l env store)
            [v*s (l-value l-store)
                 (type-case Value*Store (interp r env l-store)
@@ -148,6 +148,17 @@
                 )
            ]
          )]
+;    [add (r l) ; reversed interpretation (right to left)
+;         (type-case Value*Store (interp l env store)
+;           [v*s (l-value l-store)
+;                (type-case Value*Store (interp r env l-store)
+;                  [v*s (r-value r-store)
+;                       (v*s (tree-add l-value r-value)
+;                            r-store)
+;                  ]
+;                )
+;           ]
+;         )]
     [sub (l r)
          (type-case Value*Store (interp l env store)
            [v*s (l-value l-store)
@@ -323,3 +334,62 @@
 (define (run expr) (interp (parse expr) (mtSub) (mtSto)))
 
 
+(run '{with {swap {refun {x}
+                         {refun {y}
+                                {refun {z}
+                                       {with {a x}
+                                             {seqn {set x y}
+                                                   {set y z}
+                                                   {set z a}}}}}}}
+            {with {a 3}
+                  {with {b 2}
+                        {with {c 1}
+                              {seqn {{{swap a} b} c}
+                                    c}}}}})
+
+;(v*s
+; (numV 3)
+; (aSto
+;  3
+;  (numV 3)
+;  (aSto
+;   2
+;   (numV 1)
+;   (aSto
+;    1
+;    (numV 2)
+;    (aSto
+;     4
+;     (numV 3)
+;     (aSto
+;      3
+;      (numV 1)
+;      (aSto 2 (numV 2) (aSto 1 (numV 3) (aSto 0 (refclosV 'x (refun 'y (refun 'z (app (fun 'a (seqn '((set x y) (set y z) (set z a)))) (id 'x)))) (mtSub)) (mtSto))))))))))
+
+
+(run '{with {x 2} {+ x {seqn {set x 4}}}})
+; 6 with left eval first
+; 8 with right eval first
+
+
+(run '{with {swap {fun {x}
+                       {fun {y}
+                            {with {z x}
+                                  {seqn {set x y}
+                                        {set y z}}}}}}
+            {with {a 3}
+                  {with {b 2}
+                        {seqn {{swap a} b}
+                              b}}}})
+; answer should be 2
+
+(run '{with {swap {refun {x}
+                         {refun {y}
+                                {with {z x}
+                                      {seqn {set x y}
+                                            {set y z}}}}}}
+            {with {a 3}
+                  {with {b 2}
+                        {seqn {{swap a} b}
+                              b}}}})
+; answer should be 3
